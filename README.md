@@ -2,7 +2,7 @@
 
 An interactive quiz app built with **Next.js**, **Supabase**, **Ant Design**, and **Tailwind CSS**. Users can sign in, browse quizzes with search and pagination, and navigate to per-quiz routes. Quiz creation, editing, and taking flows are still being built out.
 
-![Quiz Platform Banner](https://res.cloudinary.com/df4jaqtep/image/upload/v1749915377/hf1mpwuhlhejvarpszsc.png)
+![Quiz Platform Banner]([https://res.cloudinary.com/df4jaqtep/image/upload/v1749915377/hf1mpwuhlhejvarpszsc.png](https://res.cloudinary.com/datuws0g3/image/upload/v1775489253/Screenshot_2026-04-06_at_4.26.18_PM_lub9he.png))
 
 ## Overview
 
