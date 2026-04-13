@@ -11,7 +11,7 @@ const nextConfig = {
         protocol: "https",  // Only allow images loaded over HTTPS
         hostname: "images.unsplash.com",  // Only allow images from unsplash.com
       },
-    //  { protocol: 'https', hostname: '*.supabase.co' },       // allow Supabase images (wildcard subdomains)
+     { protocol: 'https', hostname: '*.supabase.co' },       // allow Supabase images (wildcard subdomains)
     //  { protocol: 'https', hostname: '*.supabase.in' },       // another Supabase domain
     ],
   },

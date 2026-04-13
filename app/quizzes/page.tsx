@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import QuizCard from '../componenets/QuizCard'
 import { Col, Input, Pagination, Row, Spin } from 'antd'
-
 import { SearchOutlined } from "@ant-design/icons"
 import Title from 'antd/es/typography/Title'
 import Paragraph from 'antd/es/typography/Paragraph'

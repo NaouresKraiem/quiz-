@@ -23,3 +23,10 @@ export interface Quiz {
   author_id: string
   questions?: Question[]
 }
+
+
+export type NewQuizFormValues = {
+  title: string,
+  description: string,
+  coverImage: File | null
+}
