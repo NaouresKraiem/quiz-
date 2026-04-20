@@ -11,6 +11,7 @@ import {
     StopOutlined,
     DeleteOutlined,
     ExclamationCircleOutlined,
+    LinkOutlined,
 } from "@ant-design/icons"
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createQuestion, getQuizById, updateQuiz } from '@/app/api/quizzes'
@@ -25,6 +26,8 @@ import { uploadCoverImage } from '@/lib/storage'
 import { useAuth } from '@/lib/auth'
 import SortableQuestionList from '@/app/componenets/SortableQuestionList'
 import QuestionForm from '@/app/componenets/QuestionForm'
+import CopyToClipboard from 'react-copy-to-clipboard'
+
 const newQuizSchema: yup.ObjectSchema<NewQuizFormValues> = yup.object({
     title: yup.string().required('Please enter a title').trim().min(3, 'Title must be at least 3 caracters').max(120, 'Title must be at most 120 caracters'),
     description: yup
@@ -219,7 +222,7 @@ const EditQuizPage = () => {
         setQuestionToDelete(null);
     };
     const handleEditQuestion = (question: Question) => {
-        setEditingQuestion(question);w
+        setEditingQuestion(question);
         setShowQuestionForm(true);
     };
 
@@ -305,7 +308,7 @@ const EditQuizPage = () => {
                 icon={<EyeOutlined />}
                 onClick={() =>
                   router.push(
-                    `/quizzes/${quizId}/${quiz.published ? "published" : "preview"
+                    `/quizzes/${id}/${quiz.published ? "published" : "preview"
                     }`
                   )
                 }
@@ -319,8 +322,8 @@ const EditQuizPage = () => {
                 type={quiz.published ? "default" : "primary"}
                 icon={quiz.published ? <StopOutlined /> : <CheckOutlined />}
                 danger={quiz.published}
-                onClick={handleTogglePublish}
-                disabled={!quiz.published && questions.length === 0}
+                // onClick={handleTogglePublish}
+                disabled={!quiz.published && questions?.length === 0}
                 size="large"
                 className={`transition-all duration-200 ${quiz.published
                     ? ""
@@ -332,7 +335,7 @@ const EditQuizPage = () => {
               <Button
                 danger
                 icon={<DeleteOutlined />}
-                onClick={handleDeleteQuizClick}
+                // onClick={handleDeleteQuizClick}
                 size="large"
                 className="transition-all duration-200"
               >
