@@ -1,6 +1,6 @@
 "use client"
 import * as yup from 'yup'
-import { Button, Card, Form, Input, Typography, Upload, UploadProps } from 'antd'
+import { Button, Card, Form, Input, Modal, Tooltip, Typography, Upload, UploadProps } from 'antd'
 import { yupResolver } from '@hookform/resolvers/yup'
 import { useParams, useRouter } from 'next/navigation'
 import {
@@ -10,18 +10,21 @@ import {
     InboxOutlined,
     StopOutlined,
     DeleteOutlined,
+    ExclamationCircleOutlined,
 } from "@ant-design/icons"
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getQuizById, updateQuiz } from '@/app/api/quizzes'
-import { getQuizQuestions } from '@/app/api/questions'
+import { createQuestion, getQuizById, updateQuiz } from '@/app/api/quizzes'
+import { deleteQuestion, getQuizQuestions, reorderQuestions } from '@/app/api/questions'
 import { Controller, useForm } from 'react-hook-form'
-import { NewQuizFormValues, type Quiz } from '@/lib/types'
+import { NewQuizFormValues, type Question, type Quiz } from '@/lib/types'
 import Image from 'next/image'
 import Dragger from 'antd/es/upload/Dragger'
 import { useEffect, useState } from 'react'
 import { useAntdApp } from '@/lib/useAntdApp'
 import { uploadCoverImage } from '@/lib/storage'
 import { useAuth } from '@/lib/auth'
+import SortableQuestionList from '@/app/componenets/SortableQuestionList'
+import QuestionForm from '@/app/componenets/QuestionForm'
 const newQuizSchema: yup.ObjectSchema<NewQuizFormValues> = yup.object({
     title: yup.string().required('Please enter a title').trim().min(3, 'Title must be at least 3 caracters').max(120, 'Title must be at most 120 caracters'),
     description: yup
@@ -46,13 +49,18 @@ const EditQuizPage = () => {
     const { Title, Paragraph } = Typography
     const { control, reset, setValue, handleSubmit, formState: { errors, dirtyFields } } = useForm<NewQuizFormValues>({ resolver: yupResolver(newQuizSchema) })
     const [previewImage, setPreviewImage] = useState<string | null>(null)
+    const [deleteQuestionModalVisible, setDeleteQuestionModalVisible] = useState(false);
+    const [questionToDelete, setQuestionToDelete] = useState<string | null>(null);
+    const [showQuestionForm, setShowQuestionForm] = useState(false);
+    const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
+    const [shareUrl, setShareUrl] = useState("");
 
     const { isLoading, error, data: quiz } = useQuery<Quiz | null>({
         queryKey: ['quiz', id],
         queryFn: () => getQuizById(id),
         enabled: !!id
     })
-
+    console.log('quiz:', quiz)
     const { isLoading: loadingQuestions, error: errorQuestions, data: questions } = useQuery({
         queryKey: ['questions', id],
         queryFn: () => getQuizQuestions(id),
@@ -90,8 +98,19 @@ const EditQuizPage = () => {
         },
     })
 
+    const createQuestionMutation = useMutation({
+        mutationFn: (newQuestion: Partial<Question>) => createQuestion(newQuestion),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["questions", id] })
+            queryClient.invalidateQueries({ queryKey: ["quiz", id] })
+            message.success("Question added successfully")
+        },
+        onError: () => {
+            message.error("Failed to add question")
+        },
+    })
     const onSubmit = async (values: NewQuizFormValues) => {
-        console.log('values:', values)
+
         const payload: Partial<Quiz> = {}
 
         if (dirtyFields.title) payload.title = values.title
@@ -148,9 +167,108 @@ const EditQuizPage = () => {
             })
         }
     }
+
+    ////drag and drop questions
+
+    const reorderQuestionsMutation = useMutation({
+        mutationFn: (questionIds: string[]) => reorderQuestions(id, questionIds),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['questions', id] })
+            message.success("Questions reordered successfully")
+        },
+        onError: () => {
+            message.error("Failed to reorder questions")
+        },
+    })
+
+    const handleReorderQuestions = (reorderedQuestions: Question[]) => {
+        const ids = reorderedQuestions.map((q) => q.id)
+        reorderQuestionsMutation.mutate(ids)
+    }
+
+    const handleDeleteQuestion = (questionId: string) => {
+        setQuestionToDelete(questionId);
+        setDeleteQuestionModalVisible(true)
+    }
+    const deleteQuestionMutation = useMutation({
+        mutationFn: (questionId: string) => deleteQuestion(questionId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['questions', id] })
+            message.success("Question deleted successfully")
+        },
+        onError: () => {
+            message.error("Failed to delete question")
+        },
+    })
+
+    const handleDeleteQuestionConfirm = () => {
+        if (!questionToDelete) return;
+
+        try {
+            deleteQuestionMutation.mutate(questionToDelete);
+            message.success("Question deleted successfully");
+            setDeleteQuestionModalVisible(false);
+            setQuestionToDelete(null);
+        } catch (error) {
+            message.error("Failed to delete question");
+        }
+    };
+
+    const handleDeleteQuestionCancel = () => {
+        setDeleteQuestionModalVisible(false);
+        setQuestionToDelete(null);
+    };
+    const handleEditQuestion = (question: Question) => {
+        setEditingQuestion(question);w
+        setShowQuestionForm(true);
+    };
+
+    const handleAddQuestion = () => {
+        // setEditingQuestion(null);
+        setShowQuestionForm(true);
+    };
+
+
+    const handleQuestionSubmit = (data: any) => {
+        try {
+            if (editingQuestion) {
+                // await updateQuestionMutation.mutateAsync({
+                //   id: editingQuestion.id,
+                //   updates: data,
+                // });
+                message.success("Question updated successfully");
+            } else {
+                createQuestionMutation.mutate({
+                    ...data,
+                    quiz_id: id,
+                    order: questions?.length ?? 0 + 1,
+                });
+                message.success("Question added successfully");
+            }
+            setShowQuestionForm(false);
+        } catch (error) {
+            message.error("Failed to save question");
+        }
+    };
+    if (!quiz) {
+        return (
+            <div className="text-center py-16">
+                <Title level={4} className="text-red-500">
+                    Quiz not found
+                </Title>
+                <Paragraph className="text-slate-500">
+                    The quiz you're looking for doesn't exist or has been removed.
+                </Paragraph>
+                <Button type="primary" onClick={() => router.push("/quizzes")} className="bg-emerald-500 hover:bg-emerald-600 border-0 rounded-lg">
+                    Back to Quizzes
+                </Button>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-slate-50">
-            <div className="max-w-5xl mx-auto px-4 py-8">
+            <div className="max-w-5xl mx-auto px-4 py-8 g-5">
 
                 {/* header section */}
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 mb-6">
@@ -163,42 +281,69 @@ const EditQuizPage = () => {
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2">
-                            <Button icon={<EyeOutlined />} onClick={() => router.push(`/quizzes/${id}/preview`)}
-                                className="border-slate-200 hover:border-slate-300 transition-all duration-200"
-                                size="large"
-                            >
-                                Preview
-                            </Button>
-                            <Button
-                                icon={quiz?.published ? <StopOutlined /> : <CheckOutlined />}
+              {quiz.published && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-lg">
+                  <span className="text-sm text-emerald-700 font-medium">
+                    Share:
+                  </span>
+                  <CopyToClipboard
+                    text={shareUrl}
+                    onCopy={() => message.success("Link copied to clipboard!")}
+                  >
+                    <Tooltip title="Copy link">
+                      <Button
+                        icon={<LinkOutlined />}
+                        size="small"
+                        className="border-emerald-300 text-emerald-600 hover:bg-emerald-100"
+                      />
+                    </Tooltip>
+                  </CopyToClipboard>
+                </div>
+              )}
 
-                                onClick={() => router.push(`/quizzes/${id}/preview`)}
-                                className={`transition-all duration-200 ${quiz?.published
-                                    ? ""
-                                    : "bg-emerald-500 hover:bg-emerald-600 border-0 shadow-md shadow-emerald-500/20"
-                                    }`}
+              <Button
+                icon={<EyeOutlined />}
+                onClick={() =>
+                  router.push(
+                    `/quizzes/${quizId}/${quiz.published ? "published" : "preview"
+                    }`
+                  )
+                }
+                className="border-slate-200 hover:border-slate-300 transition-all duration-200"
+                size="large"
+              >
+                {quiz.published ? "View Live" : "Preview"}
+              </Button>
 
-                                disabled={!quiz?.published && questions?.length === 0}
-                                size="large"
-                            >
-                                {'Publish Quiz'}
-                            </Button>
-
-                            <Button
-                                danger
-                                icon={<DeleteOutlined />}
-                                // onClick={handleDeleteQuizClick}
-                                size="large"
-                                className="transition-all duration-200"
-                            >
-                                Delete Quiz
-                            </Button>
-                        </div>
+              <Button
+                type={quiz.published ? "default" : "primary"}
+                icon={quiz.published ? <StopOutlined /> : <CheckOutlined />}
+                danger={quiz.published}
+                onClick={handleTogglePublish}
+                disabled={!quiz.published && questions.length === 0}
+                size="large"
+                className={`transition-all duration-200 ${quiz.published
+                    ? ""
+                    : "bg-emerald-500 hover:bg-emerald-600 border-0 shadow-md shadow-emerald-500/20"
+                  }`}
+              >
+                {quiz.published ? "Unpublish" : "Publish Quiz"}
+              </Button>
+              <Button
+                danger
+                icon={<DeleteOutlined />}
+                onClick={handleDeleteQuizClick}
+                size="large"
+                className="transition-all duration-200"
+              >
+                Delete Quiz
+              </Button>
+            </div>
                     </div>
                 </div>
 
                 {/* quiz details card */}
-                <Card className="mb-6 border border-slate-200 shadow-sm rounded-xl overflow-hidden bg-white">
+                <Card style={{ marginBottom: '2rem' }}>
                     <div className="bg-slate-50 px-6 py-4 border-b border-slate-200">
                         <Title level={4} className="mb-1 text-slate-800">
                             Quiz Details
@@ -313,8 +458,65 @@ const EditQuizPage = () => {
                         </Form>
                     </div>
                 </Card>
-  {/* Questions Section */}
+                {/* Questions Section */}
+                <Card>
+                    <div className="bg-slate-50 px-6 py-4 border-b border-slate-200">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div>
+                                <Title level={4} className="mb-1 text-slate-800">
+                                    Questions ({questions?.length ?? ''})
+                                </Title>
+                                <Paragraph className="text-slate-500 mb-0 text-sm">
+                                    Drag questions to reorder them
+                                </Paragraph>
+                            </div>
+                            <Button
+                                type="primary"
+                                icon={<PlusOutlined />}
+                                onClick={handleAddQuestion}
+                                size="large"
+                                className="bg-emerald-500 hover:bg-emerald-600 border-0 rounded-lg shadow-md shadow-emerald-500/20 transition-all duration-200"
+                            >
+                                Add Question
+                            </Button>
+                        </div>
+                    </div>
+                    <div className="p-6">
 
+                        {showQuestionForm && (
+                            <div className="mb-6">
+                                <QuestionForm
+                                    initialData={editingQuestion || undefined}
+                                    onSubmit={handleQuestionSubmit}
+                                    onCancel={() => setShowQuestionForm(false)}
+                                />
+                            </div>
+                        )}
+
+                        <SortableQuestionList
+                            onEdit={handleEditQuestion}
+                            onDelete={handleDeleteQuestion} questions={questions ?? []} onReorder={handleReorderQuestions} />
+                    </div>
+                </Card>
+
+                <Modal
+                    title={
+                        <div className="flex items-center gap-2">
+                            <ExclamationCircleOutlined className="text-red-500" />
+                            <span>Delete Question</span>
+                        </div>
+                    }
+                    open={deleteQuestionModalVisible}
+                    onOk={handleDeleteQuestionConfirm}
+                    onCancel={handleDeleteQuestionCancel}
+                    okText="Delete"
+                    cancelText="Cancel"
+                    okType="danger"
+                    confirmLoading={deleteQuestionMutation.isPending}
+                >
+                    <p>Are you sure you want to delete this question?</p>
+                    <p className="text-slate-500">This action cannot be undone.</p>
+                </Modal>
             </div>
             <div>
             </div>

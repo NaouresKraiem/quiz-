@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import type { Quiz } from "@/lib/types";
+import type { Question, Quiz } from "@/lib/types";
 
 
 
@@ -17,7 +17,6 @@ export const getQuizzes = async (
             dataQuery = dataQuery.ilike('title', `%${searchTerm}%`)
         }
         const { data, error, count } = await dataQuery
-        console.log('count:', count)
 
         if (error) {
             throw error;
@@ -33,7 +32,6 @@ export const getQuizById = async (id: string): Promise<Quiz | null> => {
     try {
         let { data, error } = await supabase.from('quizzes').select('*').eq('id', id).single()
 
-        console.log('data:', data)
         if (error) {
             console.log('error in get one quizzes:', error)
             throw error;
@@ -45,7 +43,7 @@ export const getQuizById = async (id: string): Promise<Quiz | null> => {
     }
 }
 export const createQuiz = async (quiz: any) => {
-    console.log('quiz:', quiz)
+ 
     const { data, error } = await supabase.from('quizzes').insert(quiz).select().single()
     if (error) {
         throw error;
@@ -69,3 +67,15 @@ export const updateQuiz = async (id: string, quiz: Partial<Quiz>) => {
     return data
 }
 
+export const publishQuiz = async (id: string) => updateQuiz(id, { published: true })
+
+export const unpublishQuiz = async (id: string) => updateQuiz(id, { published: false })
+
+export const createQuestion = async (question: Partial<Question>) => {
+    console.log('question:', question)
+    const { data, error } = await (supabase as any).from('questions').insert(question).select().single()
+    if (error) {
+        throw error;
+    }
+    return data
+}

@@ -39,7 +39,7 @@ const NewQuizPage = () => {
   const { control, setValue, handleSubmit, formState: { errors } } = useForm<NewQuizFormValues>({ resolver: yupResolver(newQuizSchema) })
   const [coverImage, setCoverImage] = useState<File | null>(null)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
-  console.log('previewImage:', previewImage)
+
   useEffect(() => {
     return () => {
       if (previewImage?.startsWith("blob:")) {
@@ -94,13 +94,13 @@ const NewQuizPage = () => {
   })
 
   const onSubmit = async (values: NewQuizFormValues) => {
-    console.log('values:', values)
+
     let coverImageUrl = null
 
     if (values.coverImage && user) {
 
       coverImageUrl = await uploadCoverImage(values.coverImage, user.id)
-      console.log('coverImageUrl:', coverImageUrl)
+
       if (!coverImageUrl) {
         message.error('failed to upload cover image')
         return
